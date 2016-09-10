@@ -52,7 +52,7 @@ var rollback = function(client) {
 // connect to our database
 client.connect();
 
-var tpl = 'INSERT INTO sogo_users (c_uid, c_name, c_password, c_cn, mail) VALUES($1, $2, $1, $1, $1)';
+var tpl = 'INSERT INTO sogo_users (c_uid, c_name, c_password, c_cn, mail) VALUES($1, $1, $2, $1, $1)';
 client.query('BEGIN', function(err) {
   if(err) return rollback(client);
 
