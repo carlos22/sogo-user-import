@@ -1,0 +1,15 @@
+{
+  "name": "sogo-user-import",
+  "version": "0.0.1",
+  "description": "import users from json in sogo (postgresql db)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Karl Glatz <karl@glatz.biz>",
+  "license": "MIT",
+  "dependencies": {
+    "async": "^2.0.1",
+    "pg": "^6.1.0"
+  }
+}
