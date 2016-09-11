@@ -45,6 +45,8 @@ WITH (
 
 ## Sogo Configuration
 
+Put this in `/etc/sogo/sogo.conf`
+
 ```c
   SOGoUserSources =
     (
@@ -52,7 +54,7 @@ WITH (
         displayName = "Default";
         type = sql;
         id = directory;
-        viewURL = "postgresql://postgres:pwd@192.168.15.138:5432/sogo/sogo_users";
+        viewURL = "postgresql://postgres:secret@192.168.15.138:5432/sogo/sogo_users";
         canAuthenticate = YES;
         //isAddressBook = YES; // if you want the users to browse the others
         userPasswordAlgorithm = crypt;
