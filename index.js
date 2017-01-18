@@ -13,6 +13,7 @@ var config = {
   max: 10, // max number of clients in the pool
   idleTimeoutMillis: 30000, // how long a client is allowed to remain idle before being closed
 };
+var verbose = process.env.VERBOSE || false
 
 if (process.argv.length != 3) {
   console.log(process.argv[0] + " " + process.argv[1] + " <url-to-export-json>");
@@ -23,28 +24,33 @@ var endpoint = process.argv[2];
 
 // request file
 var res = request('GET', endpoint);
-users = JSON.parse(res.getBody());
+try {
+        users = JSON.parse(res.getBody());
+} catch(e) {
+        console.error('Error: Could not parse JSON')
+        process.exit(2)
+}
 
 var accountList = [];
 Object.keys(users).forEach(function (key) {
-	var accounts = users[key].account || [];
-	accounts.forEach(function (acc) {
-	  accountList.push([acc.name+'@'+key, acc.password]);
-	});
+        var accounts = users[key].account || [];
+        accounts.forEach(function (acc) {
+          accountList.push([acc.name+'@'+key, acc.password]);
+        });
 })
 
-console.log(accountList.length, 'users fetched from endpoint', endpoint);
+if(verbose) console.log(accountList.length, 'users fetched from endpoint', endpoint);
 
 // pg stuff
 var client = new pg.Client(config);
 
-var rollback = function(client) {
+var rollback = function(err, client) {
   //terminating a client connection will
   //automatically rollback any uncommitted transactions
   //so while it's not technically mandatory to call
   //ROLLBACK it is cleaner and more correct
   client.query('ROLLBACK', function() {
-    console.log('do a rollback');
+    console.error('Error: Database commit failed, rollback initiated', err);
     client.end();
   });
 };
@@ -54,12 +60,12 @@ client.connect();
 
 var tpl = 'INSERT INTO sogo_users (c_uid, c_name, c_password, c_cn, mail) VALUES($1, $1, $2, $1, $1)';
 client.query('BEGIN', function(err) {
-  if(err) return rollback(client);
+  if(err) return rollback(err, client);
 
   // delete old ones
   client.query('DELETE FROM sogo_users;', function (err, result) {
-    if(err) return rollback(client);
-    
+    if(err) return rollback(err, client);
+
     // insert
     async.every(accountList, function(account, callback) {
       client.query(tpl, account, function (err) { callback(null, !err); });
@@ -67,14 +73,12 @@ client.query('BEGIN', function(err) {
       // if result is true then every file exists
       if (result) {
         client.query('COMMIT', function () {
-          console.log('COMMIT Done');
+          if(verbose) console.log('COMMIT Done')
           client.end();
-	});
+        });
       } else {
-        rollback(client);
+        rollback(err, client);
       }
     });
   });
-}); 
-
-
+});
