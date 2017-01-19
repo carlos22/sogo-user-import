@@ -14,6 +14,7 @@ var config = {
   idleTimeoutMillis: 30000, // how long a client is allowed to remain idle before being closed
 };
 var verbose = process.env.VERBOSE || false
+var options = { timeout: 15000 }
 
 if (process.argv.length < 3) {
   console.log(process.argv[0] + " " + process.argv[1] + " <url-to-export-json>");
@@ -24,7 +25,7 @@ var users = {}
 
 process.argv.slice(2).forEach(function (endpoint) {
   // request file
-  var res = request('GET', endpoint);
+  var res = request('GET', endpoint, options);
   try {
     var req = JSON.parse(res.getBody());
     users = Object.assign(users, req)
