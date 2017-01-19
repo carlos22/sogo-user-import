@@ -3,7 +3,6 @@
 var async = require('async');
 var request = require('sync-request');
 var pg = require('pg');
-var extend = require('util')._extend
 
 var config = {
   user: process.env.PGUSER || 'postgres', //env var: PGUSER
@@ -28,7 +27,7 @@ process.argv.slice(2).forEach(function (endpoint) {
   var res = request('GET', endpoint);
   try {
     var req = JSON.parse(res.getBody());
-    users = extend(users, req)
+    users = Object.assign(users, req)
   } catch(e) {
     console.error('Error: Could not parse JSON: ', endpoint)
     process.exit(2)
