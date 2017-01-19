@@ -3,6 +3,7 @@
 var async = require('async');
 var request = require('sync-request');
 var pg = require('pg');
+var extend = require('util')._extend
 
 var config = {
   user: process.env.PGUSER || 'postgres', //env var: PGUSER
@@ -15,21 +16,24 @@ var config = {
 };
 var verbose = process.env.VERBOSE || false
 
-if (process.argv.length != 3) {
+if (process.argv.length < 3) {
   console.log(process.argv[0] + " " + process.argv[1] + " <url-to-export-json>");
   process.exit(1);
 }
 
-var endpoint = process.argv[2];
+var users = {}
 
-// request file
-var res = request('GET', endpoint);
-try {
-        users = JSON.parse(res.getBody());
-} catch(e) {
-        console.error('Error: Could not parse JSON')
-        process.exit(2)
-}
+process.argv.slice(2).forEach(function (endpoint) {
+  // request file
+  var res = request('GET', endpoint);
+  try {
+    var req = JSON.parse(res.getBody());
+    users = extend(users, req)
+  } catch(e) {
+    console.error('Error: Could not parse JSON: ', endpoint)
+    process.exit(2)
+  }
+})
 
 var accountList = [];
 Object.keys(users).forEach(function (key) {
@@ -39,7 +43,7 @@ Object.keys(users).forEach(function (key) {
         });
 })
 
-if(verbose) console.log(accountList.length, 'users fetched from endpoint', endpoint);
+if(verbose) console.log(accountList.length, 'users fetched');
 
 // pg stuff
 var client = new pg.Client(config);
