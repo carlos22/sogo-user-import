@@ -1,88 +1,141 @@
 #!/usr/bin/env node
 
-var async = require('async');
-var request = require('sync-request');
-var pg = require('pg');
+var async   = require('async')
+var pg      = require('pg')
+var request = require('request')
 
 var config = {
-  user: process.env.PGUSER || 'postgres', //env var: PGUSER
-  database: process.env.PGDATABASE || 'sogo', //env var: PGDATABASE
-  password: process.env.PGPASSWORD || 'sogo', //env var: PGPASSWORD
-  host: process.env.PGHOST || 'localhost', // Server hosting the postgres database
-  port: process.env.PGPORT || 5432, //env var: PGPORT
-  max: 10, // max number of clients in the pool
-  idleTimeoutMillis: 30000, // how long a client is allowed to remain idle before being closed
-};
-var verbose = process.env.VERBOSE || false
-var options = { timeout: 15000 }
+	user:     process.env.PGUSER     || 'postgres',
+	database: process.env.PGDATABASE || 'sogo',
+	password: process.env.PGPASSWORD || 'sogo',
+	host:     process.env.PGHOST     || 'localhost',
+	port:     process.env.PGPORT     || 5432,
 
-if (process.argv.length < 3) {
-  console.log(process.argv[0] + " " + process.argv[1] + " <url-to-export-json>");
-  process.exit(1);
+	max:      10,             // max number of clients in the pool
+	idleTimeoutMillis: 30000, // how long a client is allowed to remain idle before being closed
 }
 
-var users = {}
+var verbose = process.env.VERBOSE || false
 
-process.argv.slice(2).forEach(function (endpoint) {
-  // request file
-  var res = request('GET', endpoint, options);
-  try {
-    var req = JSON.parse(res.getBody());
-    users = Object.assign(users, req)
-  } catch(e) {
-    console.error('Error: Could not parse JSON: ', endpoint)
-    process.exit(2)
-  }
-})
 
-var accountList = [];
-Object.keys(users).forEach(function (key) {
-        var accounts = users[key].account || [];
-        accounts.forEach(function (acc) {
-          accountList.push([acc.name+'@'+key, acc.password]);
-        });
-})
+function fetch(u, cb) {
+	request({
+		url: u,
+		json: true,
+		timeout: 1500,
+	}, function(err, res, body) {
+		if(err) {
+			cb(Error("Request for " + u + " failed: " + String(err)))
+			return
+		}
 
-if(verbose) console.log(accountList.length, 'users fetched');
+		if(res.statusCode !== 200) {
+			cb(Error("Request for " + u + " failed: " + String(res.statusCode) + " " + res.statusMessage))
+			return
+		}
 
-// pg stuff
-var client = new pg.Client(config);
+		if(typeof(body) !== 'object') {
+			cb(Error("Request for " + u + " failed: invalid json"))
+			return
+		}
 
-var rollback = function(err, client) {
-  //terminating a client connection will
-  //automatically rollback any uncommitted transactions
-  //so while it's not technically mandatory to call
-  //ROLLBACK it is cleaner and more correct
-  client.query('ROLLBACK', function() {
-    console.error('Error: Database commit failed, rollback initiated', err);
-    client.end();
-  });
-};
+		cb(null, body)
+	})
+}
 
-// connect to our database
-client.connect();
+function merge(arr) {
+	res = {}
+	arr.forEach(function(item) {
+		res = Object.assign(res, item)
+	})
+	return res
+}
 
-var tpl = 'INSERT INTO sogo_users (c_uid, c_name, c_password, c_cn, mail) VALUES($1, $1, $2, $1, $1)';
-client.query('BEGIN', function(err) {
-  if(err) return rollback(err, client);
+function flatten(users) {
+	var accounts = []
+	Object.keys(users).forEach(function (domain) {
+		(users[domain].account || []).forEach(function (acc) {
+			accounts.push([acc.name + '@' + domain, acc.password])
+		})
+	})
+	return accounts
+}
 
-  // delete old ones
-  client.query('DELETE FROM sogo_users;', function (err, result) {
-    if(err) return rollback(err, client);
 
-    // insert
-    async.every(accountList, function(account, callback) {
-      client.query(tpl, account, function (err) { callback(null, !err); });
-    }, function(err, result) {
-      // if result is true then every file exists
-      if (result) {
-        client.query('COMMIT', function () {
-          if(verbose) console.log('COMMIT Done')
-          client.end();
-        });
-      } else {
-        rollback(err, client);
-      }
-    });
-  });
-});
+function insert(accounts) {
+	var tpl = 'INSERT INTO sogo_users (c_uid, c_name, c_password, c_cn, mail) VALUES($1, $1, $2, $1, $1)'
+
+	var client = new pg.Client(config)
+
+	function rollback(err) {
+		client.query('ROLLBACK', function() {
+			console.error('Error: Database commit failed, rollback initiated', err)
+			client.end()
+		})
+	}
+
+	function commit() {
+		client.query('COMMIT', function () {
+			if(verbose) {
+				console.log('COMMIT Done')
+			}
+			client.end()
+		})
+	}
+
+	client.query('BEGIN', function(err) {
+		if(err) {
+			rollback(err)
+			return
+		}
+
+		// clear old users
+		client.query('DELETE FROM sogo_users;', function (err, result) {
+			if(err) {
+				rollback(err)
+				return
+			}
+
+			// insert
+			async.every(accounts, function(account, callback) {
+				client.query(tpl, account, function (err) {
+					callback(null, !err)
+				})
+			}, function(err, result) {
+				// if result is false there was an error
+				if(err || !result) {
+					rollback(err)
+					return
+				}
+
+				commit()
+			})
+		})
+	})
+}
+
+
+function main() {
+	if(process.argv.length < 3) {
+		console.log(process.argv[0] + " " + process.argv[1] + " <url-to-export-json>")
+		process.exit(1)
+	}
+
+	async.map(process.argv.slice(2), fetch, function(err, result) {
+		if(err) {
+			console.error(err)
+			return
+		}
+
+		var users    = merge(result)
+		var accounts = flatten(users)
+
+		if(verbose) {
+			console.log(accounts.length + " users fetched")
+		}
+
+		insert(accounts)
+	})
+}
+
+main()
