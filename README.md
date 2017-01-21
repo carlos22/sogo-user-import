@@ -10,6 +10,7 @@ and push it into a sogo compatible postgresql database.
 * `PGPASSWORD` password (default: sogo)
 * `PGHOST` host (default: localhost)
 * `PGPORT` port (default: 5432)
+* `VERBOSE` enable verbose output (default: no)
 
 ## Usage
 
