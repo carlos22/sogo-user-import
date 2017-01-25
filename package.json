@@ -1,6 +1,6 @@
 {
   "name": "sogo-user-import",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "import users from json in sogo (postgresql db)",
   "main": "index.js",
   "scripts": {
