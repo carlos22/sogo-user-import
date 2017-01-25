@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-
+"use strict"
 var async   = require('async')
 var pg      = require('pg')
 var request = require('request')
@@ -44,7 +44,7 @@ function fetch(u, cb) {
 }
 
 function merge(arr) {
-	res = {}
+	var res = {}
 	arr.forEach(function(item) {
 		res = Object.assign(res, item)
 	})
@@ -83,6 +83,7 @@ function insert(accounts) {
 		})
 	}
 
+	client.connect()
 	client.query('BEGIN', function(err) {
 		if(err) {
 			rollback(err)
