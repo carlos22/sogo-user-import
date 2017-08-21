@@ -22,7 +22,7 @@ function fetch(u, cb) {
 	request({
 		url: u,
 		json: true,
-		timeout: 10000,
+		timeout: 20000,
 	}, function(err, res, body) {
 		if(err) {
 			cb(Error("Request for " + u + " failed: " + String(err)))
