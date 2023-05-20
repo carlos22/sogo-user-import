@@ -1,6 +1,6 @@
 {
   "name": "sogo-user-import",
-  "version": "0.0.8",
+  "version": "1.0.0",
   "description": "import users from json in sogo (postgresql db)",
   "main": "index.js",
   "scripts": {
@@ -17,7 +17,7 @@
   "license": "MIT",
   "dependencies": {
     "async": "^2.1.4",
-    "pg": "^6.1.0",
+    "pg": "^8.2.2",
     "request": "^2.79.0"
   }
 }
