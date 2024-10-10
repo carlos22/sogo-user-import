@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 "use strict"
-var async   = require('async')
-var pg      = require('pg')
-var request = require('request')
+const async = require('async')
+const pg = require('pg')
+const http = require('urllib');
+
 
 var config = {
 	user:     process.env.PGUSER     || 'postgres',
@@ -19,27 +20,27 @@ var verbose = process.env.VERBOSE || false
 
 
 function fetch(u, cb) {
-	request({
-		url: u,
-		json: true,
+	http.request(u, {
+		contentType: 'json',
+		dataType: 'json',
 		timeout: 20000,
-	}, function(err, res, body) {
+	})
+	.then((body) => {
+		cb(null, body.data)
+	})
+	.catch((err) => {
+		if(err.res.statusCode !== 200) {
+			cb(Error("Request for " + u + " failed: " + String(err.res.statusCode) + " " + err.res.statusMessage))
+			return
+		}
+		if(err.name == "JSONResponseFormatError") {
+			cb(Error("Request for " + u + " failed: invalid json"))
+			return
+		}
 		if(err) {
 			cb(Error("Request for " + u + " failed: " + String(err)))
 			return
 		}
-
-		if(res.statusCode !== 200) {
-			cb(Error("Request for " + u + " failed: " + String(res.statusCode) + " " + res.statusMessage))
-			return
-		}
-
-		if(typeof(body) !== 'object') {
-			cb(Error("Request for " + u + " failed: invalid json"))
-			return
-		}
-
-		cb(null, body)
 	})
 }
 
