@@ -2,8 +2,8 @@
 "use strict"
 const async = require('async')
 const pg = require('pg')
-const http = require('urllib');
-
+const http = require('urllib')
+const url = require('url')
 
 var config = {
 	user:     process.env.PGUSER     || 'postgres',
@@ -20,7 +20,9 @@ var verbose = process.env.VERBOSE || false
 
 
 function fetch(u, cb) {
+	var auth = url.parse(u).auth
 	http.request(u, {
+		auth: auth,
 		contentType: 'json',
 		dataType: 'json',
 		timeout: 20000,
